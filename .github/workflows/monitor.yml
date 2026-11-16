@@ -1,0 +1,51 @@
+name: Monitor de passagens Milão-Roma
+
+on:
+  schedule:
+    - cron: "47 19 * * *"   # todo dia às 16h47 (horário de Brasília)
+  workflow_dispatch:
+    inputs:
+      modo_teste:
+        description: "Modo teste (consulta só 1 data e guarda a página para conferência)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  buscar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Buscar preços
+        env:
+          BRIGHTDATA_API_KEY: ${{ secrets.BRIGHTDATA_API_KEY }}
+          BRIGHTDATA_SERP_ZONE: ${{ secrets.BRIGHTDATA_SERP_ZONE }}
+          MODO_TESTE: ${{ inputs.modo_teste || 'false' }}
+        run: python buscar_passagens.py
+
+      - name: Guardar página de teste
+        if: ${{ always() && inputs.modo_teste }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pagina-de-teste
+          path: depuracao/
+          if-no-files-found: ignore
+
+      - name: Salvar histórico
+        if: ${{ always() }}
+        run: |
+          git config user.name "robo-passagens"
+          git config user.email "robo-passagens@users.noreply.github.com"
+          git add historico.csv estado.json ultimo_resultado.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "Consulta de preços $(date -u +%F)"
+          git push
