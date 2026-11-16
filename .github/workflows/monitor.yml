@@ -31,7 +31,7 @@ jobs:
           BRIGHTDATA_API_KEY: ${{ secrets.BRIGHTDATA_API_KEY }}
           BRIGHTDATA_SERP_ZONE: ${{ secrets.BRIGHTDATA_SERP_ZONE }}
           MODO_TESTE: ${{ inputs.modo_teste || 'false' }}
-        run: python buscar_passagens.py
+        run: python -u buscar_passagens.py
 
       - name: Guardar página de teste
         if: ${{ always() && inputs.modo_teste }}
