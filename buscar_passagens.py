@@ -122,7 +122,8 @@ def consultar(url):
             )
             if resp.status_code == 200 and resp.text:
                 return resp.text
-            print(f"   aviso: resposta {resp.status_code} (tentativa {tentativa + 1})")
+            detalhe = (resp.headers.get("x-brd-error") or resp.text or "")[:300]
+            print(f"   aviso: resposta {resp.status_code} (tentativa {tentativa + 1}): {detalhe}")
         except requests.RequestException as erro:
             print(f"   aviso: erro de conexão ({erro}) (tentativa {tentativa + 1})")
         time.sleep(5 * (tentativa + 1))
@@ -227,6 +228,8 @@ def main():
         url = link_google_flights(ida, volta)
         print(f"- ida {ida:%d/%m} / volta {volta:%d/%m}")
         html = consultar(url)
+        if html is None and MODO_TESTE:
+            sys.exit("Teste: a Bright Data recusou as 3 tentativas. Veja as linhas 'aviso: resposta' acima.")
         if html is None:
             resultados.append((ida, volta, None, "falha na consulta", url))
             continue
