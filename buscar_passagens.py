@@ -91,21 +91,25 @@ def _trecho(data_voo, de, para):
     msg += _campo_numero(5, MAX_CONEXOES)
     for cia in COMPANHIAS:
         msg += _campo_texto(6, cia)
-    msg += _campo_msg(13, _campo_texto(2, de))
-    msg += _campo_msg(14, _campo_texto(2, para))
+    # aeroporto: tipo 1 = código IATA
+    msg += _campo_msg(13, _campo_numero(1, 1) + _campo_texto(2, de))
+    msg += _campo_msg(14, _campo_numero(1, 1) + _campo_texto(2, para))
     return msg
 
 
 def link_google_flights(data_ida, data_volta, idioma="en"):
-    info = _campo_msg(3, _trecho(data_ida, ORIGEM, CIDADE_IDA))
+    info = _campo_numero(1, 28) + _campo_numero(2, 2)
+    info += _campo_msg(3, _trecho(data_ida, ORIGEM, CIDADE_IDA))
     info += _campo_msg(3, _trecho(data_volta, CIDADE_VOLTA, ORIGEM))
     for _ in range(ADULTOS):
         info += _campo_numero(8, 1)      # 1 = adulto
     info += _campo_numero(9, 1)          # 1 = econômica
+    info += _campo_numero(14, 1)
+    info += _campo_msg(16, _campo_numero(1, 2**64 - 1))  # sem limite de preço
     info += _campo_numero(19, 3)         # 3 = vários destinos
-    tfs = base64.b64encode(info).decode("ascii")
+    tfs = base64.urlsafe_b64encode(info).decode("ascii").rstrip("=")
     params = {"tfs": tfs, "hl": idioma, "gl": "BR", "curr": "BRL"}
-    return "https://www.google.com/travel/flights?" + urllib.parse.urlencode(params)
+    return "https://www.google.com/travel/flights/search?" + urllib.parse.urlencode(params)
 
 
 # ----------------------------------------------------------------------
@@ -130,8 +134,8 @@ def consultar(url):
     return None
 
 
-PADRAO_ROTULO = re.compile(r'aria-label="([^"]*?Brazilian reais[^"]*)"')
-PADRAO_PRECO = re.compile(r"([\d][\d,\.]*)\s+Brazilian reais")
+PADRAO_ROTULO = re.compile(r'aria-label="(From [^"]*?Brazilian rea[li]s?[^"]*)"')
+PADRAO_PRECO = re.compile(r"([\d][\d,\.]*)\s+Brazilian rea[li]s?")
 
 
 def _para_numero(texto):
@@ -150,6 +154,12 @@ def extrair_ofertas(html):
         if preco and preco > 1000:  # ignora valores que não são o total da viagem
             descricao = re.sub(r"\s+", " ", rotulo).replace("&amp;", "&")
             ofertas.append((preco, descricao[:300]))
+    if not ofertas:
+        # plano B: preços exibidos como "R$8,508" ou "BRL 8,508"
+        for achado in re.finditer(r"(?:R\$|BRL)\s?([\d][\d,\.]*)", html):
+            preco = _para_numero(achado.group(1))
+            if preco and 3000 < preco < 100000:
+                ofertas.append((preco, "preço lido do texto da página (sem detalhes do voo)"))
     return ofertas
 
 
