@@ -10,7 +10,7 @@
   "detalhes": "LATAM e parceiras LATAM Pass, até 1 conexão. A conexão informada é a da ida; a volta costuma seguir o mesmo caminho. Confirme pelo link antes de comprar.",
   "link_google_flights": "https://www.google.com/travel/flights/search?tfs=CBwQAhpgEgoyMDI3LTA0LTIyKAEyAkxBMgJBUjICQU0yAk9TMgJCQTICQ1gyAkRMMgJBWTICSUIyAkpMMgJMSDICUUYyAlFSMgJSSjICTFgyAlZTagcIARIDR1JVcgcIARIDRkNPGmASCjIwMjctMDUtMDQoATICTEEyAkFSMgJBTTICT1MyAkJBMgJDWDICREwyAkFZMgJJQjICSkwyAkxIMgJRRjICUVIyAlJKMgJMWDICVlNqBwgBEgNGQ09yBwgBEgNHUlVAAUABSAFwAYIBCwj___________8BmAEB&hl=pt-BR&gl=BR&curr=BRL",
   "menor_preco_historico_brl": 9773,
-  "novo_recorde": true,
+  "novo_recorde": false,
   "combinacoes_consultadas": 44,
   "combinacoes_com_preco": 42
 }
