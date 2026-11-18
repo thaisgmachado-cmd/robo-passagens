@@ -1,14 +1,16 @@
 {
-  "data_consulta": "2026-11-16",
-  "melhor_preco_total_2_adultos_brl": 10603,
+  "data_consulta": "2026-11-18",
+  "roteiro": "ida e volta São Paulo (GRU) ⇄ Roma (FCO)",
+  "melhor_preco_total_2_adultos_brl": 9773,
   "status": "Aguardar",
-  "ida_gru_milao": "2027-04-16",
-  "volta_roma_gru": "2027-04-28",
-  "detalhes": "Ida e volta por Milão. LATAM e parceiras, até 1 conexão. Confirme o preço exato pelo link antes de comprar.",
-  "link_google_flights": "https://www.google.com/travel/flights/search?tfs=CBwQAho4EgoyMDI3LTA0LTE2KAEyAkxBMgJJQjICTEgyAkxYMgJPUzICQVlqBwgBEgNHUlVyBwgBEgNNWFAaOBIKMjAyNy0wNC0yOCgBMgJMQTICSUIyAkxIMgJMWDICT1MyAkFZagcIARIDRkNPcgcIARIDR1JVQAFAAUgBcAGCAQsI____________AZgBAw&hl=pt-BR&gl=BR&curr=BRL",
-  "menor_preco_historico_brl": 10603,
-  "novo_recorde": false,
-  "melhor_estimativa_milao_roma_brl": 10668,
+  "ida": "2027-04-22",
+  "volta": "2027-05-04",
+  "companhias": "British Airways",
+  "conexao_ida": "Londres (Reino Unido)",
+  "detalhes": "LATAM e parceiras LATAM Pass, até 1 conexão. A conexão informada é a da ida; a volta costuma seguir o mesmo caminho. Confirme pelo link antes de comprar.",
+  "link_google_flights": "https://www.google.com/travel/flights/search?tfs=CBwQAhpgEgoyMDI3LTA0LTIyKAEyAkxBMgJBUjICQU0yAk9TMgJCQTICQ1gyAkRMMgJBWTICSUIyAkpMMgJMSDICUUYyAlFSMgJSSjICTFgyAlZTagcIARIDR1JVcgcIARIDRkNPGmASCjIwMjctMDUtMDQoATICTEEyAkFSMgJBTTICT1MyAkJBMgJDWDICREwyAkFZMgJJQjICSkwyAkxIMgJRRjICUVIyAlJKMgJMWDICVlNqBwgBEgNGQ09yBwgBEgNHUlVAAUABSAFwAYIBCwj___________8BmAEB&hl=pt-BR&gl=BR&curr=BRL",
+  "menor_preco_historico_brl": 9773,
+  "novo_recorde": true,
   "combinacoes_consultadas": 44,
-  "combinacoes_com_preco": 44
+  "combinacoes_com_preco": 42
 }
