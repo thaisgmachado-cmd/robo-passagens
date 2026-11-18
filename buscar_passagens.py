@@ -1,21 +1,11 @@
 """
-Robô de monitoramento de passagens – Milão (ida) / Roma (volta)
+Robô de monitoramento de passagens – São Paulo <-> Roma (ida e volta)
 
-Como o Google Flights funciona por dentro:
-- Buscas de IDA E VOLTA já vêm com os preços dentro da página.
-- Buscas de VÁRIOS DESTINOS (ida para Milão, volta de Roma) só carregam os
-  preços depois, por JavaScript. Por isso não dá para lê-las direto.
-
-Então, para cada combinação de datas, o robô consulta:
-1. Ida e volta São Paulo <-> Milão
-2. Ida e volta São Paulo <-> Roma
-e calcula uma ESTIMATIVA do roteiro Milão (ida) / Roma (volta): a média dos
-dois. Companhias como a LATAM costumam cobrar o roteiro "vai por uma cidade,
-volta por outra" perto dessa média. O link enviado no aviso abre o roteiro
-exato no Google Flights para você confirmar o preço antes de comprar.
-
-Filtros: 2 adultos, econômica, no máximo 1 conexão, somente LATAM e
-parceiras que acumulam LATAM Pass.
+Para cada combinação de datas (ida entre DATA_IDA_INICIO e DATA_IDA_FIM,
+volta 12 ou 13 dias depois), o robô consulta no Google Flights, via Bright
+Data, a busca de ida e volta São Paulo (GRU) <-> Roma (FCO):
+2 adultos, econômica, no máximo 1 conexão, somente LATAM e as companhias
+parceiras que acumulam milhas LATAM Pass.
 
 Resultado do dia: ultimo_resultado.json (lido pela tarefa agendada do Claude,
 que atualiza a planilha e te notifica) e historico.csv.
@@ -36,17 +26,33 @@ import requests
 # ----------------------------------------------------------------------
 # CONFIGURAÇÕES
 # ----------------------------------------------------------------------
-ORIGEM = "GRU"
-MILAO = "MXP"
-ROMA = "FCO"
+ORIGEM = "GRU"            # São Paulo – Guarulhos
+DESTINO = "FCO"           # Roma – Fiumicino
 DATA_IDA_INICIO = date(2027, 4, 16)
 DATA_IDA_FIM = date(2027, 5, 7)
 ESTADIAS_DIAS = [12, 13]
 ADULTOS = 2
-MAX_CONEXOES = 1
+MAX_CONEXOES = 1          # 0 = só voo direto, 1 = até 1 conexão
 
-# LA = LATAM, IB = Iberia, LH = Lufthansa, LX = Swiss, OS = Austrian, AY = Finnair
-COMPANHIAS = ["LA", "IB", "LH", "LX", "OS", "AY"]
+# LATAM + parceiras que acumulam LATAM Pass (lista oficial do LATAM Pass)
+COMPANHIAS = [
+    "LA",  # LATAM
+    "AR",  # Aerolíneas Argentinas
+    "AM",  # Aeroméxico
+    "OS",  # Austrian Airlines
+    "BA",  # British Airways
+    "CX",  # Cathay Pacific
+    "DL",  # Delta
+    "AY",  # Finnair
+    "IB",  # Iberia
+    "JL",  # Japan Airlines
+    "LH",  # Lufthansa
+    "QF",  # Qantas
+    "QR",  # Qatar Airways
+    "RJ",  # Royal Jordanian
+    "LX",  # Swiss
+    "VS",  # Virgin Atlantic
+]
 
 ALVO = float(os.environ.get("ALVO", "8500"))
 TOLERANCIA = float(os.environ.get("TOLERANCIA", "9000"))
@@ -61,7 +67,7 @@ MODO_TESTE = os.environ.get("MODO_TESTE", "false").lower() == "true"
 
 
 # ----------------------------------------------------------------------
-# Montagem dos links do Google Flights (parâmetro "tfs")
+# Montagem do link do Google Flights (parâmetro "tfs")
 # ----------------------------------------------------------------------
 def _varint(n):
     out = bytearray()
@@ -98,28 +104,19 @@ def _trecho(data_voo, de, para):
     return msg
 
 
-def _link(trechos, tipo, idioma):
-    """tipo: 1 = ida e volta, 3 = vários destinos."""
+def link_ida_volta(ida, volta, idioma="en"):
     info = _numero(1, 28) + _numero(2, 2)
-    for data_voo, de, para in trechos:
-        info += _msg(3, _trecho(data_voo, de, para))
+    info += _msg(3, _trecho(ida, ORIGEM, DESTINO))
+    info += _msg(3, _trecho(volta, DESTINO, ORIGEM))
     for _ in range(ADULTOS):
-        info += _numero(8, 1)
-    info += _numero(9, 1)
+        info += _numero(8, 1)            # 1 = adulto
+    info += _numero(9, 1)                # 1 = econômica
     info += _numero(14, 1)
     info += _msg(16, _numero(1, 2**64 - 1))
-    info += _numero(19, tipo)
+    info += _numero(19, 1)               # 1 = ida e volta
     tfs = base64.urlsafe_b64encode(info).decode("ascii").rstrip("=")
     params = {"tfs": tfs, "hl": idioma, "gl": "BR", "curr": "BRL"}
     return "https://www.google.com/travel/flights/search?" + urllib.parse.urlencode(params)
-
-
-def link_ida_volta(cidade, ida, volta, idioma="en"):
-    return _link([(ida, ORIGEM, cidade), (volta, cidade, ORIGEM)], 1, idioma)
-
-
-def link_milao_roma(ida, volta, idioma="pt-BR"):
-    return _link([(ida, ORIGEM, MILAO), (volta, ROMA, ORIGEM)], 3, idioma)
 
 
 # ----------------------------------------------------------------------
@@ -144,14 +141,69 @@ def consultar(url):
     return None
 
 
-# Os voos vêm dentro da página como [[null,PRECO],"codigo-do-voo"...]
+# Os voos vêm dentro da página como [[null,PRECO],"codigo-do-voo"...].
+# Logo antes de cada preço ficam a companhia e as conexões da ida.
 PADRAO_PRECO_DADOS = re.compile(r'\[\[null,(\d{4,6})\],"[A-Za-z0-9_\-]{20,}')
+PADRAO_COMPANHIA = re.compile(r'\["([A-Z0-9]{2}|multi)",\[((?:"[^"]+",?)+)\],\[\[null')
+PADRAO_CONEXAO = re.compile(r'\[\d+,"([A-Z]{3})","[A-Z]{3}",(?:\[[\d,]*\]|null),"[^"]*","([^"]*)"')
+
+PAISES_AEROPORTOS = {
+    "LHR": "Reino Unido", "LGW": "Reino Unido", "LCY": "Reino Unido", "MAN": "Reino Unido",
+    "MAD": "Espanha", "BCN": "Espanha", "LIS": "Portugal", "OPO": "Portugal",
+    "FRA": "Alemanha", "MUC": "Alemanha", "ZRH": "Suíça", "GVA": "Suíça",
+    "VIE": "Áustria", "HEL": "Finlândia", "CDG": "França", "ORY": "França",
+    "AMS": "Holanda", "DOH": "Catar", "AMM": "Jordânia", "IST": "Turquia",
+    "ATL": "Estados Unidos", "JFK": "Estados Unidos", "MIA": "Estados Unidos",
+    "DFW": "Estados Unidos", "BOS": "Estados Unidos", "ORD": "Estados Unidos",
+    "EZE": "Argentina", "AEP": "Argentina", "MEX": "México", "SCL": "Chile",
+    "LIM": "Peru", "BOG": "Colômbia", "GIG": "Brasil", "FOR": "Brasil", "REC": "Brasil",
+    "FCO": "Itália", "MXP": "Itália", "LIN": "Itália",
+}
 
 
-def menor_preco(html):
-    precos = [int(p) for p in PADRAO_PRECO_DADOS.findall(html)]
-    precos = [p for p in precos if 2000 <= p <= 200000]
-    return min(precos) if precos else None
+CIDADES_PT = {
+    "London": "Londres", "Frankfurt am Main": "Frankfurt", "Munich": "Munique",
+    "Zurich": "Zurique", "Geneva": "Genebra", "Vienna": "Viena", "Lisbon": "Lisboa",
+    "Paris": "Paris", "Amsterdam": "Amsterdã", "Madrid": "Madri", "Barcelona": "Barcelona",
+    "Helsinki": "Helsinque", "Doha": "Doha", "Istanbul": "Istambul", "Amman": "Amã",
+    "New York": "Nova York", "Mexico City": "Cidade do México", "Rio de Janeiro": "Rio de Janeiro",
+}
+
+
+def _pais(aeroporto, cidade):
+    cidade = CIDADES_PT.get(cidade, cidade)
+    pais = PAISES_AEROPORTOS.get(aeroporto)
+    if pais:
+        return f"{cidade or aeroporto} ({pais})"
+    return f"{cidade or aeroporto} ({aeroporto})"
+
+
+def ofertas(html):
+    """Lista de (preco, companhias, conexoes_da_ida) encontradas na página."""
+    lista = []
+    fim_anterior = 0
+    for achado in PADRAO_PRECO_DADOS.finditer(html):
+        trecho = html[max(fim_anterior, achado.start() - 20000):achado.start()]
+        fim_anterior = achado.end()
+        preco = int(achado.group(1))
+        if not 2000 <= preco <= 200000:
+            continue
+        cias = PADRAO_COMPANHIA.findall(trecho)
+        companhias = ", ".join(re.findall(r'"([^"]+)"', cias[-1][1])) if cias else ""
+        inicio_voo = trecho.rfind('[[null,null,') if not cias else trecho.rfind(cias[-1][0] + '",[')
+        conexoes = PADRAO_CONEXAO.findall(trecho[max(inicio_voo, 0):])
+        if conexoes:
+            texto_conexoes = " + ".join(_pais(a, c) for a, c in conexoes)
+        else:
+            texto_conexoes = "Direto"
+        lista.append((preco, companhias, texto_conexoes))
+    return lista
+
+
+def melhor_oferta(html):
+    todas = ofertas(html)
+    # em caso de empate, prefere a oferta em que a companhia foi identificada
+    return min(todas, key=lambda o: (o[0], o[1] == "")) if todas else None
 
 
 # ----------------------------------------------------------------------
@@ -171,7 +223,7 @@ def ler_estado():
     if os.path.exists(ARQUIVO_ESTADO):
         with open(ARQUIVO_ESTADO, encoding="utf-8") as f:
             return json.load(f)
-    return {"menor_preco_historico": None}
+    return {}
 
 
 def gravar_historico(linhas):
@@ -181,7 +233,7 @@ def gravar_historico(linhas):
         if novo:
             w.writerow(["data_consulta", "ida", "volta",
                         "ida_volta_milao_brl", "ida_volta_roma_brl",
-                        "estimativa_milao_ida_roma_volta_brl", "link_milao_roma"])
+                        "estimativa_milao_ida_roma_volta_brl", "link_google_flights"])
         w.writerows(linhas)
 
 
@@ -219,61 +271,42 @@ def main():
         lista = lista[:1]
         os.makedirs(PASTA_DEPURACAO, exist_ok=True)
 
-    print(f"Consultando {len(lista)} combinações de datas (Milão e Roma)...")
+    print(f"Consultando {len(lista)} combinações de datas (ida e volta Roma)...")
     resultados = []
     for ida, volta in lista:
-        print(f"- ida {ida:%d/%m} / volta {volta:%d/%m}")
-        precos = {}
-        for nome, cidade in (("milao", MILAO), ("roma", ROMA)):
-            html = consultar(link_ida_volta(cidade, ida, volta))
-            if MODO_TESTE and html:
-                with open(os.path.join(PASTA_DEPURACAO, f"pagina_{nome}.html"), "w", encoding="utf-8") as f:
-                    f.write(html)
-            precos[nome] = menor_preco(html) if html else None
-            print(f"   ida e volta {nome}: {brl(precos[nome]) if precos[nome] else 'sem preço'}")
-        m, r = precos["milao"], precos["roma"]
-        estimativa = round((m + r) / 2) if m and r else None
-        if estimativa:
-            print(f"   estimativa Milão (ida) / Roma (volta): {brl(estimativa)}")
-        resultados.append((ida, volta, m, r, estimativa))
+        html = consultar(link_ida_volta(ida, volta))
+        if MODO_TESTE and html:
+            with open(os.path.join(PASTA_DEPURACAO, "pagina_roma.html"), "w", encoding="utf-8") as f:
+                f.write(html)
+        oferta = melhor_oferta(html) if html else None
+        preco, companhias, conexoes = oferta if oferta else (None, "", "")
+        texto = f"{brl(preco)} – {companhias} – conexão na ida: {conexoes}" if preco else "sem preço"
+        print(f"- ida {ida:%d/%m} / volta {volta:%d/%m}: {texto}")
+        resultados.append((ida, volta, preco, companhias, conexoes))
 
-    gravar_historico([[hoje, i.isoformat(), v.isoformat(), m or "", r or "", e or "",
-                       link_milao_roma(i, v)] for i, v, m, r, e in resultados])
+    # mesmas colunas do histórico antigo; Milão e estimativa ficam vazias
+    gravar_historico([[hoje, i.isoformat(), v.isoformat(), "", p or "", "",
+                       link_ida_volta(i, v, idioma="pt-BR")] for i, v, p, _, _ in resultados])
 
-    # melhor opção do dia entre as três formas de viajar
-    opcoes = []
-    for ida, volta, m, r, e in resultados:
-        if e:
-            opcoes.append((e, ida, volta, "Milão (ida) / Roma (volta) – estimativa"))
-        if m:
-            opcoes.append((m, ida, volta, "Ida e volta por Milão"))
-        if r:
-            opcoes.append((r, ida, volta, "Ida e volta por Roma"))
-
-    if not opcoes:
+    validos = [r for r in resultados if r[2]]
+    if not validos:
         msg = "Nenhum preço encontrado hoje. Veja o log da execução."
         print(msg)
         escrever_resumo(f"### {hoje}\n{msg}")
         sys.exit(1)
 
-    preco, ida, volta, tipo = min(opcoes)
-    melhor_open_jaw = min((o for o in opcoes if o[3].startswith("Milão")), default=None)
-    link = link_milao_roma(ida, volta)
+    ida, volta, preco, companhias, conexoes = min(validos, key=lambda r: r[2])
+    link = link_ida_volta(ida, volta, idioma="pt-BR")
     estado = ler_estado()
-    menor_antes = estado.get("menor_preco_historico")
+    menor_antes = estado.get("menor_preco_historico_roma")
     novo_recorde = menor_antes is None or preco < menor_antes
     status = status_do_preco(preco)
 
-    linhas_resumo = [
-        f"### Consulta de {hoje}",
-        f"- Melhor preço: **{brl(preco)}** para 2 adultos ({status}) – {tipo}",
-        f"- Ida GRU: {ida:%d/%m/%Y} | Volta para GRU: {volta:%d/%m/%Y}",
-    ]
-    if melhor_open_jaw:
-        linhas_resumo.append(f"- Melhor estimativa Milão/Roma: {brl(melhor_open_jaw[0])} "
-                             f"(ida {melhor_open_jaw[1]:%d/%m}, volta {melhor_open_jaw[2]:%d/%m})")
-    linhas_resumo.append(f"- [Abrir Milão (ida) / Roma (volta) no Google Flights]({link})")
-    resumo = "\n".join(linhas_resumo)
+    resumo = (f"### Consulta de {hoje}\n"
+              f"- Melhor preço: **{brl(preco)}** para 2 adultos ({status}) – ida e volta São Paulo ⇄ Roma\n"
+              f"- Ida: {ida:%d/%m/%Y} | Volta: {volta:%d/%m/%Y}\n"
+              f"- Companhia(s): {companhias} | Conexão na ida: {conexoes}\n"
+              f"- [Abrir no Google Flights]({link})")
     print(resumo)
     escrever_resumo(resumo)
 
@@ -281,23 +314,25 @@ def main():
         return
 
     if novo_recorde:
-        estado["menor_preco_historico"] = preco
+        estado["menor_preco_historico_roma"] = preco
     with open(ARQUIVO_ESTADO, "w", encoding="utf-8") as f:
         json.dump(estado, f, ensure_ascii=False, indent=2)
 
     ultimo_resultado = {
         "data_consulta": hoje,
+        "roteiro": "ida e volta São Paulo (GRU) ⇄ Roma (FCO)",
         "melhor_preco_total_2_adultos_brl": int(preco),
         "status": status,
-        "ida_gru_milao": ida.isoformat(),
-        "volta_roma_gru": volta.isoformat(),
-        "detalhes": f"{tipo}. LATAM e parceiras, até 1 conexão. Confirme o preço exato pelo link antes de comprar.",
+        "ida": ida.isoformat(),
+        "volta": volta.isoformat(),
+        "companhias": companhias,
+        "conexao_ida": conexoes,
+        "detalhes": "LATAM e parceiras LATAM Pass, até 1 conexão. A conexão informada é a da ida; a volta costuma seguir o mesmo caminho. Confirme pelo link antes de comprar.",
         "link_google_flights": link,
-        "menor_preco_historico_brl": int(estado["menor_preco_historico"]),
+        "menor_preco_historico_brl": int(estado["menor_preco_historico_roma"]),
         "novo_recorde": novo_recorde,
-        "melhor_estimativa_milao_roma_brl": int(melhor_open_jaw[0]) if melhor_open_jaw else None,
         "combinacoes_consultadas": len(resultados),
-        "combinacoes_com_preco": sum(1 for r in resultados if r[2] or r[3]),
+        "combinacoes_com_preco": len(validos),
     }
     with open("ultimo_resultado.json", "w", encoding="utf-8") as f:
         json.dump(ultimo_resultado, f, ensure_ascii=False, indent=2)
