@@ -2,7 +2,12 @@ name: Monitor de passagens São Paulo-Roma
 
 on:
   schedule:
-    - cron: "17 10 * * *"   # todo dia às 7h17 (horário de Brasília)
+    # Várias tentativas por dia porque o GitHub costuma atrasar ou pular execuções agendadas.
+    # O robô só consulta uma vez por dia: as tentativas seguintes são puladas se já houver resultado de hoje.
+    - cron: "17 10 * * *"   # 7h17 (horário de Brasília)
+    - cron: "47 12 * * *"   # 9h47
+    - cron: "23 14 * * *"   # 11h23
+    - cron: "41 15 * * *"   # 12h41
   workflow_dispatch:
     inputs:
       modo_teste:
