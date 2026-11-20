@@ -8,7 +8,8 @@ Data, a busca de ida e volta São Paulo (GRU) <-> Roma (FCO):
 parceiras que acumulam milhas LATAM Pass.
 
 Resultado do dia: ultimo_resultado.json (lido pela tarefa agendada do Claude,
-que atualiza a planilha e te notifica) e historico.csv.
+que atualiza a planilha e te notifica), registro.csv (todas as combinações
+com companhia, conexão, preço e link) e historico.csv.
 """
 
 import base64
@@ -28,8 +29,8 @@ import requests
 # ----------------------------------------------------------------------
 ORIGEM = "GRU"            # São Paulo – Guarulhos
 DESTINO = "FCO"           # Roma – Fiumicino
-DATA_IDA_INICIO = date(2027, 4, 16)
-DATA_IDA_FIM = date(2027, 5, 7)
+DATA_IDA_INICIO = date(2027, 4, 15)
+DATA_IDA_FIM = date(2027, 5, 8)
 ESTADIAS_DIAS = [12, 13]
 ADULTOS = 2
 MAX_CONEXOES = 1          # 0 = só voo direto, 1 = até 1 conexão
@@ -54,10 +55,12 @@ COMPANHIAS = [
     "VS",  # Virgin Atlantic
 ]
 
-ALVO = float(os.environ.get("ALVO", "8500"))
-TOLERANCIA = float(os.environ.get("TOLERANCIA", "9000"))
+PRECO_MINIMO_FAIXA = float(os.environ.get("PRECO_MINIMO_FAIXA", "8000"))  # abaixo disso: ótimo
+ALVO = float(os.environ.get("ALVO", "9000"))          # até aqui: COMPRAR (faixa R$ 8.000–9.000)
+TOLERANCIA = float(os.environ.get("TOLERANCIA", "9500"))  # até aqui: Quase lá
 
 ARQUIVO_HISTORICO = "historico.csv"
+ARQUIVO_REGISTRO = "registro.csv"   # uma linha por combinação consultada, com todos os detalhes
 ARQUIVO_ESTADO = "estado.json"
 PASTA_DEPURACAO = "depuracao"
 
@@ -237,9 +240,23 @@ def gravar_historico(linhas):
         w.writerows(linhas)
 
 
+def gravar_registro(hoje, resultados):
+    novo = not os.path.exists(ARQUIVO_REGISTRO)
+    with open(ARQUIVO_REGISTRO, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if novo:
+            w.writerow(["data_consulta", "ida", "volta", "preco_total_2_adultos_brl", "status",
+                        "companhias", "conexao_ida", "link_google_flights"])
+        for ida, volta, preco, companhias, conexoes in resultados:
+            w.writerow([hoje, ida.isoformat(), volta.isoformat(), preco or "", status_do_preco(preco),
+                        companhias, conexoes, link_ida_volta(ida, volta, idioma="pt-BR")])
+
+
 def status_do_preco(preco):
     if preco is None:
         return "sem preço"
+    if preco < PRECO_MINIMO_FAIXA:
+        return "COMPRAR (abaixo da faixa)"
     if preco <= ALVO:
         return "COMPRAR"
     if preco <= TOLERANCIA:
@@ -266,6 +283,11 @@ def main():
         sys.exit("Faltam os segredos BRIGHTDATA_API_KEY e/ou BRIGHTDATA_SERP_ZONE.")
 
     hoje = datetime.now(timezone(timedelta(hours=-3))).date().isoformat()
+    if os.environ.get("GITHUB_EVENT_NAME") == "schedule" and os.path.exists("ultimo_resultado.json"):
+        with open("ultimo_resultado.json", encoding="utf-8") as f:
+            if json.load(f).get("data_consulta") == hoje:
+                print("Já existe consulta de hoje; execução agendada pulada para economizar créditos.")
+                return
     lista = combinacoes()
     if MODO_TESTE:
         lista = lista[:1]
@@ -287,6 +309,9 @@ def main():
     # mesmas colunas do histórico antigo; Milão e estimativa ficam vazias
     gravar_historico([[hoje, i.isoformat(), v.isoformat(), "", p or "", "",
                        link_ida_volta(i, v, idioma="pt-BR")] for i, v, p, _, _ in resultados])
+
+    if not MODO_TESTE:
+        gravar_registro(hoje, resultados)
 
     validos = [r for r in resultados if r[2]]
     if not validos:
@@ -333,6 +358,8 @@ def main():
         "novo_recorde": novo_recorde,
         "combinacoes_consultadas": len(resultados),
         "combinacoes_com_preco": len(validos),
+        "periodo_ida": f"{DATA_IDA_INICIO:%d/%m/%Y} a {DATA_IDA_FIM:%d/%m/%Y}",
+        "faixa_alvo_brl": f"{int(PRECO_MINIMO_FAIXA)} a {int(ALVO)}",
     }
     with open("ultimo_resultado.json", "w", encoding="utf-8") as f:
         json.dump(ultimo_resultado, f, ensure_ascii=False, indent=2)
