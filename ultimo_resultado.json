@@ -1,16 +1,16 @@
 {
-  "data_consulta": "2026-11-19",
+  "data_consulta": "2026-11-20",
   "roteiro": "ida e volta São Paulo (GRU) ⇄ Roma (FCO)",
-  "melhor_preco_total_2_adultos_brl": 9821,
+  "melhor_preco_total_2_adultos_brl": 9937,
   "status": "Aguardar",
-  "ida": "2027-04-22",
-  "volta": "2027-05-04",
+  "ida": "2027-04-25",
+  "volta": "2027-05-08",
   "companhias": "British Airways",
   "conexao_ida": "Londres (Reino Unido)",
   "detalhes": "LATAM e parceiras LATAM Pass, até 1 conexão. A conexão informada é a da ida; a volta costuma seguir o mesmo caminho. Confirme pelo link antes de comprar.",
-  "link_google_flights": "https://www.google.com/travel/flights/search?tfs=CBwQAhpgEgoyMDI3LTA0LTIyKAEyAkxBMgJBUjICQU0yAk9TMgJCQTICQ1gyAkRMMgJBWTICSUIyAkpMMgJMSDICUUYyAlFSMgJSSjICTFgyAlZTagcIARIDR1JVcgcIARIDRkNPGmASCjIwMjctMDUtMDQoATICTEEyAkFSMgJBTTICT1MyAkJBMgJDWDICREwyAkFZMgJJQjICSkwyAkxIMgJRRjICUVIyAlJKMgJMWDICVlNqBwgBEgNGQ09yBwgBEgNHUlVAAUABSAFwAYIBCwj___________8BmAEB&hl=pt-BR&gl=BR&curr=BRL",
+  "link_google_flights": "https://www.google.com/travel/flights/search?tfs=CBwQAhpgEgoyMDI3LTA0LTI1KAEyAkxBMgJBUjICQU0yAk9TMgJCQTICQ1gyAkRMMgJBWTICSUIyAkpMMgJMSDICUUYyAlFSMgJSSjICTFgyAlZTagcIARIDR1JVcgcIARIDRkNPGmASCjIwMjctMDUtMDgoATICTEEyAkFSMgJBTTICT1MyAkJBMgJDWDICREwyAkFZMgJJQjICSkwyAkxIMgJRRjICUVIyAlJKMgJMWDICVlNqBwgBEgNGQ09yBwgBEgNHUlVAAUABSAFwAYIBCwj___________8BmAEB&hl=pt-BR&gl=BR&curr=BRL",
   "menor_preco_historico_brl": 9773,
   "novo_recorde": false,
   "combinacoes_consultadas": 44,
-  "combinacoes_com_preco": 43
+  "combinacoes_com_preco": 44
 }
