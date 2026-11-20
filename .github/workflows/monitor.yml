@@ -18,6 +18,11 @@ on:
 permissions:
   contents: write
 
+# Nunca roda duas consultas ao mesmo tempo (evita consulta dobrada e conflito ao salvar).
+concurrency:
+  group: monitor-passagens
+  cancel-in-progress: false
+
 jobs:
   buscar:
     runs-on: ubuntu-latest
