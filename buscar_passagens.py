@@ -29,8 +29,8 @@ import requests
 # ----------------------------------------------------------------------
 ORIGEM = "GRU"            # São Paulo – Guarulhos
 DESTINO = "FCO"           # Roma – Fiumicino
-DATA_IDA_INICIO = date(2027, 4, 15)
-DATA_IDA_FIM = date(2027, 5, 8)
+DATA_IDA_INICIO = date(2027, 3, 29)
+DATA_IDA_FIM = date(2027, 4, 18)
 ESTADIAS_DIAS = [12, 13]
 ADULTOS = 2
 MAX_CONEXOES = 1          # 0 = só voo direto, 1 = até 1 conexão
