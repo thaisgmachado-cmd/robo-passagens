@@ -1,5 +1,5 @@
 {
-  "data_consulta": "2026-11-21",
+  "data_consulta": "2026-11-22",
   "roteiro": "ida e volta São Paulo (GRU) ⇄ Roma (FCO)",
   "melhor_preco_total_2_adultos_brl": 9952,
   "status": "Aguardar",
@@ -12,7 +12,7 @@
   "menor_preco_historico_brl": 9773,
   "novo_recorde": false,
   "combinacoes_consultadas": 48,
-  "combinacoes_com_preco": 48,
+  "combinacoes_com_preco": 47,
   "periodo_ida": "15/04/2027 a 08/05/2027",
   "faixa_alvo_brl": "8000 a 9000"
 }
